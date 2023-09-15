@@ -1,4 +1,5 @@
 const Student = require('../models/student.models');
+const Course = require('../models/course.models');
 
 const getAllStudents = async (req, res) => {
     //db.students.find()
@@ -17,8 +18,8 @@ const getAllStudents = async (req, res) => {
 const getStudentById = async (req, res) => {
     const { id } = req.params;
     try {
-        const student = await Student.findById(id).exec();
-        if(!student){
+        const student = await Student.findById(id).populate('courses', 'name description teachers').exec();
+        if (!student) {
             res.status(404).json('Student not found');
             return;
         }
@@ -56,7 +57,7 @@ const updateStudentById = async (req, res) => {
             { firstname, lastname, email },
             { new: true }
         ).exec();
-        if(!student){
+        if (!student) {
             res.status(404).json('Student not found');
             return;
         }
@@ -71,11 +72,19 @@ const updateStudentById = async (req, res) => {
 const deleteStudentById = async (req, res) => {
     const { id } = req.params;
     try {
-        const student = await Student.findByIdAndDelete(id).exec();
-        if(!student){
+        const student = await Student.findById(id).exec();
+        if (!student) {
             res.status(404).json('Student not found');
             return;
         }
+        const courses = student.courses;
+        courses.forEach(async (course) => {
+            const courseId = course.code;
+            await Course.findByIdAndUpdate(courseId,
+                { $pull: { students: id } }
+            ).exec();
+        })
+        await Student.findByIdAndDelete(id).exec();
         res.sendStatus(204);
     } catch (error) {
         res.status(500).json({
@@ -86,10 +95,88 @@ const deleteStudentById = async (req, res) => {
 }
 
 
+
+
+//Add and remove Student to/from Course. Can be done in course.controllers.js as well
+
+// /v1/students/:studentId/courses/:courseId
+// find student id
+// find course id
+// validate student and course exist
+// add course to student
+// add student to course
+// save student
+// save course
+const addStudentToCourse = async (req, res) => {
+    const { studentId, courseId } = req.params;
+    try {
+        const student = await Student.findById(studentId).exec();
+        const course = await Course.findById(courseId).exec();
+        if (!student || !course) {
+            res.status(404).json({ error: 'Student or course not found' })
+            return;
+        }
+        // can add transaction
+
+        //method 1 : student.courses.push(courseId);
+        //method 2
+        // can avoid duplicate courseID
+        student.courses.addToSet(courseId);
+        course.students.addToSet(studentId);
+
+        await student.save();
+        await course.save();
+
+        //or combine add and save into one step using findbyidandupdate
+        // await Student.findByIdAndUpdate(studentId,{
+        //     $addToSet:{courses:courseId}
+        // }).exec();
+        // await Course.findByIdAndUpdate(courseId,{
+        //     $addToSet:{students:studentId}
+        // }).exec();
+
+        res.json(student);
+    } catch (error) {
+        res.status(500).json({
+            error: 'Server error',
+            msg: error.message
+        })
+    }
+}
+
+// /v1/students/:studentId/courses/:courseId
+const removeStudentFromCourse = async (req, res) => {
+    const { studentId, courseId } = req.params;
+    try {
+        const student = await Student.findById(studentId).exec();
+        const course = await Course.findById(courseId).exec();
+        if (!student || !course) {
+            res.status(404).json({ error: 'Student or course not found' })
+            return;
+        }
+
+        await Student.findByIdAndUpdate(studentId,
+            { $pull: { courses: courseId } }
+        ).exec();
+        await Course.findByIdAndUpdate(courseId,
+            { $pull: { students: studentId } }
+        ).exec();
+
+        res.sendStatus(204);
+    } catch (error) {
+        res.status(500).json({
+            error: 'Server error',
+            msg: error.message
+        })
+    }
+}
+
 module.exports = {
     getAllStudents,
     getStudentById,
     addStudents,
     updateStudentById,
-    deleteStudentById
+    deleteStudentById,
+    addStudentToCourse,
+    removeStudentFromCourse
 }

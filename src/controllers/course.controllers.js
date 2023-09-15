@@ -1,4 +1,7 @@
 const Course = require('../models/course.models');
+const Student = require('../models/student.models');
+const Teacher = require('../models/teacher.models');
+
 
 const getAllCourses = async (req, res) => {
     try {
@@ -12,7 +15,7 @@ const getAllCourses = async (req, res) => {
 const getCourseById = async (req, res) => {
     const { id } = req.params;
     try {
-        const course = await Course.findById(id).exec();
+        const course = await Course.findById(id).populate('students', 'firstname lastname email').exec();
         if (!course) {
             res.status(404).json({ error: 'Course not found' });
             return
@@ -27,10 +30,10 @@ const getCourseById = async (req, res) => {
 };
 
 const addCourse = async (req, res) => {
-    const {_id,name,description} = req.body;
-    const course = new Course({_id,name,description});
-    if (!_id || !name){
-        res.status(400).json({error:'Bad request'});
+    const { _id, name, description } = req.body;
+    const course = new Course({ _id, name, description });
+    if (!_id || !name) {
+        res.status(400).json({ error: 'Bad request' });
         return;
     }
     try {
@@ -46,13 +49,13 @@ const addCourse = async (req, res) => {
 
 const updateCourseById = async (req, res) => {
     const { id } = req.params;
-    const {name,description} = req.body;
+    const { name, description } = req.body;
     try {
         const course = await Course.findByIdAndUpdate(
             id,
-            {name,description},
-            {new:true}
-            ).exec();
+            { name, description },
+            { new: true }
+        ).exec();
         if (!course) {
             res.status(404).json({ error: 'Course not found' });
             return
@@ -69,11 +72,28 @@ const updateCourseById = async (req, res) => {
 const deleteCourseById = async (req, res) => {
     const { id } = req.params;
     try {
-        const course = await Course.findByIdAndDelete(id).exec();
+        const course = await Course.findById(id).exec();
         if (!course) {
             res.status(404).json({ error: 'Course not found' });
             return
         }
+        //remove course from students
+        const students = course.students;
+        students.forEach(async (student) => {
+            const studentId = student._id;
+            await Student.findByIdAndUpdate(studentId,
+                { $pull: { courses: id } }
+            ).exec();
+        })
+        //remove course from teachers
+        const teachers = course.teachers;
+        teachers.forEach(async (teacher) => {
+            const teacherId = teacher._id;
+            await Teacher.findByIdAndUpdate(teacherId,
+                { $pull: { courses: id } }
+            ).exec();
+        })
+        await Course.findByIdAndDelete(id).exec();
         res.sendStatus(204);
     } catch (error) {
         res.status(500).json({

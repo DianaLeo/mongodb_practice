@@ -1,7 +1,6 @@
 const { Schema, model } = require('mongoose');
 
-//data format
-const studentSchema = new Schema({
+module.exports = model('Teacher', new Schema({
     firstname: {
         type: String,
         required: true,
@@ -13,18 +12,12 @@ const studentSchema = new Schema({
     email: {
         type: String,
     },
-    courses: [
+    courses:[
         {
             type:String,
             ref: 'Course',
         }
-    ]//strictly no comma at the last one
+    ]
 }, {
     timestamps: true
-}
-)
-
-//collection students
-const Student = model('Student', studentSchema);
-
-module.exports = Student;
+}));

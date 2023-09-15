@@ -3,7 +3,9 @@ const {
     getStudentById,
     addStudents,
     updateStudentById,
-    deleteStudentById
+    deleteStudentById,
+    addStudentToCourse,
+    removeStudentFromCourse
 } = require('../controllers/student.controllers');
 const {Router} = require('express');
 
@@ -14,5 +16,7 @@ studentRouter.get('/:id',getStudentById);
 studentRouter.post('/',addStudents);
 studentRouter.put('/:id',updateStudentById);
 studentRouter.delete('/:id',deleteStudentById);
+studentRouter.put('/:studentId/courses/:courseId', addStudentToCourse);
+studentRouter.delete('/:studentId/courses/:courseId', removeStudentFromCourse);
 
 module.exports = studentRouter;
